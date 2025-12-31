@@ -30,9 +30,9 @@ LCDI2C_Generic lcd(0x27, 20, 4);  // I2C address: 0x27; Display size: 20x4
 
 // buttons
 Button buttonSelect(9/*pin*/);
-Button buttonPlus(8/*pin*/);
-Button buttonMinus(7/*pin*/);
-
+AutoRepeatButton buttonPlus(8/*pin*/, 1000/*delay*/, 100/*rate*/);
+AutoRepeatButton buttonMinus(7/*pin*/, 1000/*delay*/, 100/*rate*/);
+LongPressDetector detectReset(&buttonSelect, 3000);
 
 
 /**** MAIN ****/
@@ -86,6 +86,7 @@ void setup()
     buttonSelect.begin();
     buttonPlus.begin();
     buttonMinus.begin();
+    detectReset.begin();
 
     /*Serial.print("sizeof(Config_s)=");
     Serial.println(sizeof(Config_s));

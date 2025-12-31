@@ -170,7 +170,8 @@ void screen3()
     char buf[32];
     buf[0] = '\0';
     fillUpToN(buf, 20);
-    printString(buf, "SolarTimer v1.1", 0, false);
+    printString(buf, appVersion, 0, false);
+    fillUpToN(buf, 20); //for sure
     lcd.println(buf);
 
     buf[0] = '\0';

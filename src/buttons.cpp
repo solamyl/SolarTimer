@@ -1,3 +1,7 @@
+// button hadling
+
+#include <Arduino.h>
+#include <avr/wdt.h>
 
 #include "globals.h"
 
@@ -12,6 +16,7 @@ void handleButtons()
     buttonSelect.read();
     buttonPlus.read();
     buttonMinus.read();
+    detectReset.read();
 
     // debug print
     /*if (buttonPlus.wasReleased())
@@ -19,6 +24,30 @@ void handleButtons()
     if (buttonMinus.wasReleased())
         Serial.println("[(-) RELEASE]");*/
 
+    // == RESET ==
+    if (detectReset.wasPressed()) {
+        Serial.println("[(RESET) PUSH]");
+
+        rtc.set(0, 0, 0, 6, 1, 1, 0); //reset rtc
+        rtc.lostPowerClear();
+
+        config = Config_s(); //reset config with defaults
+        config.updateCrc();
+        config.saveData();
+
+        Serial.println("!! Configuration and RTC was set to defaults !!");
+        Serial.print("Waiting for device restart");
+        delay(1);
+
+        // this should cause the device reboot
+        wdt_enable(WDTO_15MS);   // shortest timeout
+
+        while (true) {
+            Serial.print(".");
+            delay(1);
+        }
+        // this place should be never reached
+    }
 
     // == SELECT ==
     if (buttonSelect.wasPressed()) {

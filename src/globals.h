@@ -2,6 +2,7 @@
  * Includes for global variables of solar timer project
  */
 
+#pragma once
 #ifndef __GLOBALS_H__
 #define __GLOBALS_H__
 
@@ -16,11 +17,17 @@
 #include "config.h"
 
 
+// global constants
 // output switch pin
 constexpr int switchPin = 12;
 
 
-// SolarTimer.ino
+// *** SolarTimer.ino ***
+// version info string
+extern const char * appVersion;
+
+
+// *** main.cpp ***
 // The TinyGPSPlus object
 extern TinyGPSPlus gps;
 
@@ -35,10 +42,17 @@ extern LCDI2C_Generic lcd;
 
 // buttons
 extern Button buttonSelect;
-extern Button buttonPlus;
-extern Button buttonMinus;
+extern AutoRepeatButton buttonPlus;
+extern AutoRepeatButton buttonMinus;
+extern LongPressDetector detectReset;
 
-// display.cpp
+
+// *** buttons.cpp ***
+// method for handling buttons to be called often for being responsive
+void handleButtons();
+
+
+// *** display.cpp ***
 // backlight timestamp
 // make backlight for some time since this timestamp
 extern unsigned long backlightTS;
@@ -52,8 +66,11 @@ extern bool refreshScreen;
 // 2 = screen3: info
 extern int selectScreen;
 
+// show info on display
+void display();
 
-// time.cpp
+
+// *** gps.cpp ***
 extern unsigned long rtcSetTS; // last time of setting clocks
 
 extern DateTime sunsetTimeLocal; // sunset today localtime
@@ -62,11 +79,6 @@ extern DateTime switchOnTimeUtc; // this day evening utc
 extern DateTime switchOnTimeLocal; // this day evening localtime
 extern DateTime switchOffTimeUtc; // next day morning utc
 extern DateTime switchOffTimeLocal; // next day morning localtime
-
-
-
-// functions
-void display();
 
 // return RTC current time (UTC) using DateTime object
 DateTime rtcCurrentTime();
@@ -81,10 +93,8 @@ int gpsSync();
 
 int calculateSwitchTimes(bool force = false);
 
-// method for handling buttons to be called often for being responsive
-void handleButtons();
 
-
+// *** print.cpp ***
 // print integer number into char buf[] - chatGPT recommended
 // buf - must be long enough to store the number
 // value - a number to print

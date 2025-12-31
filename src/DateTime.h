@@ -1,3 +1,10 @@
+//
+// this file was taken from DS323x repository and slightly modified (pull request pending)
+// https://github.com/hideakitai/DS323x/blob/master/DateTime.h
+// but it is not its original location; originally sources from:
+// https://github.com/adafruit/RTClib/blob/master/src/RTClib.cpp
+//
+
 #pragma once
 #ifndef ARDUINO_DS323X_DATETIME_H
 #define ARDUINO_DS323X_DATETIME_H
