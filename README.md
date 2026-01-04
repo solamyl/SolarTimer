@@ -5,9 +5,9 @@ depending on sunset/sunrise at actual geo position. With GPS and RTC.
 ## Hardware used
 * Arduino Nano
 * GPS module NEO-6M
-* RTC module DS3231 with eeprom AT24C32
+* RTC module DS3231 with EEPROM AT24C32
 * LCD display 20x4 LCD2004A
-* some pushbuttons, cables, etc.
+* some pushbuttons, relay, wires, etc.
 
 ## Libraries used
 * TinyGPSPlus

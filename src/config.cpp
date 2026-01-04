@@ -1,8 +1,18 @@
 /*
  * class for config data stored inside flash memory
- * part of a solar timer project
+ *
+ * SolarTimer
+ * Timer switch for Arduino (fits Arduino Nano) that turns night lights
+ * (like street lamps or decorative lighting) on/off depending on sunset/sunrise
+ * at actual geo position. With GPS and RTC.
+ *
+ * Copyright (C) 2025 by Štěpán Škrob. Licensed under GNU GPL v3.0 license.
+ * https://github.com/solamyl/SolarTimer
  */
+
 #include <Arduino.h>
+
+#include <at24c32.h>
 
 #include "globals.h"
 #include "config.h"
@@ -90,3 +100,34 @@ void Config_s::debugPrint() const
     Serial.println("}");*/
 }
 
+
+// test if eeprom is working
+// return: 0=OK, -1=error, or >0 errors from getLastError()
+int testEeprom()
+{
+    unsigned long nowTS = millis();
+
+    int idx = sizeof(Config_s); //write directly after the config struct
+    uint8_t val = nowTS & 0xff;
+
+    eeprom.write(idx, val);
+    
+    /** 
+     * getLastError() - returns result from the last performed operation. 
+     * The meaning of the values are:
+     *  0 .. success
+     *  1 .. length to long for buffer
+     *  2 .. address send, NACK received - typically means no device at the address
+     *  3 .. data send, NACK received
+     *  4 .. other twi error (lost bus arbitration, bus error, ..)
+     */
+    int err = eeprom.getLastError();
+    if (err)
+        return err;
+
+    if (eeprom.read(idx) != val)
+        return -1;
+
+    err = eeprom.getLastError();
+    return err;
+}

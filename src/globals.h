@@ -1,5 +1,13 @@
 /*
  * Includes for global variables of solar timer project
+ *
+ * SolarTimer
+ * Timer switch for Arduino (fits Arduino Nano) that turns night lights
+ * (like street lamps or decorative lighting) on/off depending on sunset/sunrise
+ * at actual geo position. With GPS and RTC.
+ *
+ * Copyright (C) 2025 by Štěpán Škrob. Licensed under GNU GPL v3.0 license.
+ * https://github.com/solamyl/SolarTimer
  */
 
 #pragma once
@@ -15,11 +23,6 @@
 
 #include "DateTime.h"
 #include "config.h"
-
-
-// global constants
-// output switch pin
-constexpr int switchPin = 12;
 
 
 // *** SolarTimer.ino ***
@@ -46,6 +49,17 @@ extern AutoRepeatButton buttonPlus;
 extern AutoRepeatButton buttonMinus;
 extern LongPressDetector detectReset;
 
+// uptime counter (secs)
+extern unsigned long uptimeSecs;
+
+// debug print to the serial console
+// message is split into pieces for better sharing of parts of the messages
+// one space is inserted between the strings
+// last string must be empty "\0"
+void debugPrint(const char * str[], bool newLine=true);
+// misc debug info
+void debugInfo();
+
 
 // *** buttons.cpp ***
 // method for handling buttons to be called often for being responsive
@@ -60,18 +74,21 @@ extern unsigned long backlightTS;
 extern bool backlightOn;
 // flag for redrawing whole info on the display
 extern bool refreshScreen;
-// selector for edited parameter
-// 0 = screen1: date/time and sun altitude
-// 1 = screen2: gps and switch delay
-// 2 = screen3: info
-extern int selectScreen;
+// selector for currently displayed info (ie. screens)
+// 1 = screen1: date/time, sun altitude, switch times
+// 2 = screen2: gps info, switch delay
+// 3 = screen3: diagnostics
+// 4 = screen4: version info
+extern int8_t selectScreen;
 
+// cycle between screens
+void displayNextScreen();
 // show info on display
-void display();
+void display(const DateTime& nowUtc);
 
 
 // *** gps.cpp ***
-extern unsigned long rtcSetTS; // last time of setting clocks
+extern unsigned long datetimeSetTS; // last time of setting clocks
 
 extern DateTime sunsetTimeLocal; // sunset today localtime
 extern DateTime sunriseTimeLocal; // sunrise next day localtime
@@ -89,9 +106,17 @@ DateTime localDateTime(const DateTime& dt);
 
 // GPS sync: time to RTC and position to config
 // returns: 0=OK, -1=err no gps signal, +1=sync not necessary, +2=not good conditions for resync
-int gpsSync();
-
-int calculateSwitchTimes(bool force = false);
+int gpsSync(const DateTime& nowUtc);
+// calc all the dates
+// inputs: force - recalc even if it was recalculated shortly
+// returns: 0=OK, -1=err/problem, +1=not necessary
+int calculateSwitchTimes(const DateTime& nowUtc, bool force = false);
+// test if GPS is responding
+// return: 0=OK, -1=error
+int testGps();
+// test if realtime clock is responding
+// return: 0=OK, -1=error
+int testRtc();
 
 
 // *** print.cpp ***
@@ -100,7 +125,7 @@ int calculateSwitchTimes(bool force = false);
 // value - a number to print
 // reserve - how many places to reserve for right-aligning the number
 // returns: length of the output string stored in buf
-int printInt(char * buf, int value, bool forceSign=false, int reserve=0, bool trailingZero=true);
+int printInt(char * buf, int value, bool forceSign=false, int8_t reserve=0, bool trailingZero=true);
 
 // print float number into char buf[] - chatGPT recommended
 // buf - must be long enough to store the number
@@ -108,28 +133,39 @@ int printInt(char * buf, int value, bool forceSign=false, int reserve=0, bool tr
 // precision - how many decimal places
 // reserve - how many places to reserve for right-aligning the number
 // returns: length of the output string stored in buf
-int printFloat(char * buf, float value, int precision=1, bool forceSign=false, int reserve=0, bool trailingZero=true);
+int printFloat(char * buf, float value, int8_t precision=1, bool forceSign=false, int8_t reserve=0, bool trailingZero=true);
 
 // copy string into char buf
 // returns: length of the output string stored in buf
-int printString(char * buf, const char * value, int reserve=0, bool trailingZero=true);
+int printString(char * buf, const char * value, int8_t reserve=0, bool trailingZero=true);
 
-// print delay (millis) in form from msec to days
+// print delay (secs) in form from secs to days
 // returns: length of the output string stored in buf
-int printDelay(char * buf, unsigned long value, int reserve=0, bool trailingZero=true);
+int printDelay(char * buf, unsigned long value, int8_t reserve=0, bool trailingZero=true);
 
 // print date in the form dd.mm.yyyy
-// precision - 0=dd., 1=dd.mm., 2=dd.mm.yyyy
+// precision - 1=dd., 2=dd.mm., 3=dd.mm.yyyy
 // returns: number of bytes produced (always 10)
-int printDate(char * buf, const DateTime& date, int precision=2, bool trailingZero=true);
+int printDate(char * buf, const DateTime& date, int8_t precision=3, bool trailingZero=true);
 
 // print time in the form of hh:mm:ss
-// precision - 0=hh, 1=hh:mm, 2=hh:mm:ss
+// precision - 1=hh, 2=hh:mm, 3=hh:mm:ss
 // returns: length of the output string stored in buf
-int printTime(char * buf, const DateTime& time, int precision=2, bool trailingZero=true);
+int printTime(char * buf, const DateTime& time, int8_t precision=3, bool trailingZero=true);
 
 // print date and time in form of dd.mm.yyyy hh:mm:ss
-int printDateTime(char * buf, const DateTime& datetime, int precision=2, bool trailingZero=true);
+int printDateTime(char * buf, const DateTime& datetime, int8_t precision=3, bool trailingZero=true);
+
+
+// *** switch.cpp ***
+// initialize switch pin for output
+void initSwitch();
+// check switch status
+void checkSwitch(const DateTime& nowUtc);
+// return number of seconds to the nearest switch-ON, negative value=already was switched
+long timeToSwitchOn(const DateTime& nowUtc);
+// return number of seconds to the nearest switch-OFF, negative value=already was switched
+long timeToSwitchOff(const DateTime& nowUtc);
 
 
 #endif // __GLOBALS_H__

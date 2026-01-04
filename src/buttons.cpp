@@ -1,4 +1,14 @@
-// button hadling
+/*
+ * button handling
+ *
+ * SolarTimer
+ * Timer switch for Arduino (fits Arduino Nano) that turns night lights
+ * (like street lamps or decorative lighting) on/off depending on sunset/sunrise
+ * at actual geo position. With GPS and RTC.
+ *
+ * Copyright (C) 2025 by Štěpán Škrob. Licensed under GNU GPL v3.0 license.
+ * https://github.com/solamyl/SolarTimer
+ */
 
 #include <Arduino.h>
 #include <avr/wdt.h>
@@ -11,22 +21,18 @@
 void handleButtons()
 {
     //Serial.println("handleButtons()");
-    unsigned long now = millis();
+    unsigned long nowTS = millis();
 
     buttonSelect.read();
     buttonPlus.read();
     buttonMinus.read();
     detectReset.read();
 
-    // debug print
-    /*if (buttonPlus.wasReleased())
-        Serial.println("[(+) RELEASE]");
-    if (buttonMinus.wasReleased())
-        Serial.println("[(-) RELEASE]");*/
-
     // == RESET ==
     if (detectReset.wasPressed()) {
-        Serial.println("[(RESET) PUSH]");
+        Serial.println("[RESET]");
+
+        lcd.noBacklight(); //give sign of reset activation
 
         rtc.set(0, 0, 0, 6, 1, 1, 0); //reset rtc
         rtc.lostPowerClear();
@@ -35,8 +41,11 @@ void handleButtons()
         config.updateCrc();
         config.saveData();
 
-        Serial.println("!! Configuration and RTC was set to defaults !!");
-        Serial.print("Waiting for device restart");
+        //Serial.println("!! Configuration and RTC was set to defaults !!");
+        Serial.print("Config and RTC");
+        Serial.print(" - resetting!");
+        Serial.println();
+        Serial.print("Restarting");
         delay(1);
 
         // this should cause the device reboot
@@ -51,34 +60,33 @@ void handleButtons()
 
     // == SELECT ==
     if (buttonSelect.wasPressed()) {
-        Serial.println("[(X) PUSH]");
-        backlightTS = now;
+        Serial.println("[SEL]");
+        backlightTS = nowTS;
+        refreshScreen = true; //refresh always after keypress
 
         if (!backlightOn) {
             // just light up the display
-            refreshScreen = true;
         }
         else {
-            selectScreen = (selectScreen + 1) % 3; // cycle 3 screens
-            refreshScreen = true;
+            displayNextScreen(); //advance to the next screen
         }
     }
 
     // == PLUS ==
     if (buttonPlus.wasPressed()) {
-        Serial.println("[(+) PUSH]");
-        backlightTS = now;
+        Serial.println("[+]");
+        backlightTS = nowTS;
+        refreshScreen = true; //refresh always after keypress
     
         if (!backlightOn) {
             // just light up the display
-            refreshScreen = true;
         }
-        else if (selectScreen == 0) {
+        else if (selectScreen == 1) {
             config.switchSunAltitude_x10 += 1;
             if (config.switchSunAltitude_x10 > 900)
                 config.switchSunAltitude_x10 = 900;
         }
-        else if (selectScreen == 1) {
+        else if (selectScreen == 2) {
             config.switchTimeDelay += 10;
             if (config.switchTimeDelay > 990)
                 config.switchTimeDelay = 990;
@@ -87,23 +95,22 @@ void handleButtons()
 
     // == MINUS ==
     if (buttonMinus.wasPressed()) {
-        Serial.println("[(-) PUSH]");
-        backlightTS = now;
+        Serial.println("[-]");
+        backlightTS = nowTS;
+        refreshScreen = true; //refresh always after keypress
 
         if (!backlightOn) {
             // just light up the display
-            refreshScreen = true;
         }
-        else if (selectScreen == 0) {
+        else if (selectScreen == 1) {
             config.switchSunAltitude_x10 -= 1;
             if (config.switchSunAltitude_x10 < -900)
                 config.switchSunAltitude_x10 = -900;
         }
-        else if (selectScreen == 1) {
+        else if (selectScreen == 2) {
             config.switchTimeDelay -= 10;
             if (config.switchTimeDelay < 0)
                 config.switchTimeDelay = 0;
         }
     }  
 }
-
