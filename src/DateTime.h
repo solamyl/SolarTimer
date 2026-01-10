@@ -5,6 +5,12 @@
 // https://github.com/adafruit/RTClib/blob/master/src/RTClib.cpp
 //
 
+// if you include "RTClib.h" then the original RTClib's DateTime class is used instead of edited one that is stored locally.
+// original lib produces ~300 bytes larger output code than locally editted class.
+//#include <RTClib.h>
+
+#ifndef _RTCLIB_H_
+
 #pragma once
 #ifndef ARDUINO_DS323X_DATETIME_H
 #define ARDUINO_DS323X_DATETIME_H
@@ -178,7 +184,7 @@
         uint8_t minute() const { return mm; }
         uint8_t second() const { return ss; }
 
-        uint16_t yearOffset() const { return yOff; }
+        //uint16_t yearOffset() const { return yOff; } //this is not in RTClib
 
         uint8_t dayOfTheWeek() const
         {
@@ -297,3 +303,5 @@
 // } // namespace arduino
 
 #endif // ARDUINO_DS323X_DATETIME_H
+
+#endif // _RTCLIB_H_

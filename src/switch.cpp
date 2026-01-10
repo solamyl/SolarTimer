@@ -9,8 +9,11 @@
  * Copyright (C) 2025 by Štěpán Škrob. Licensed under GNU GPL v3.0 license.
  * https://github.com/solamyl/SolarTimer
  */
+ 
+#include <Arduino.h>
 
 #include "DateTime.h"
+#include "config.h"
 #include "globals.h"
 
 

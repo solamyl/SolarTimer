@@ -22,7 +22,8 @@
 #include <Mini_Button.h>
 
 #include "DateTime.h"
-#include "config.h"
+//#include "display.h"
+//#include "config.h"
 
 
 // *** SolarTimer.ino ***
@@ -64,27 +65,6 @@ void debugInfo();
 // *** buttons.cpp ***
 // method for handling buttons to be called often for being responsive
 void handleButtons();
-
-
-// *** display.cpp ***
-// backlight timestamp
-// make backlight for some time since this timestamp
-extern unsigned long backlightTS;
-// is backlight shining?
-extern bool backlightOn;
-// flag for redrawing whole info on the display
-extern bool refreshScreen;
-// selector for currently displayed info (ie. screens)
-// 1 = screen1: date/time, sun altitude, switch times
-// 2 = screen2: gps info, switch delay
-// 3 = screen3: diagnostics
-// 4 = screen4: version info
-extern int8_t selectScreen;
-
-// cycle between screens
-void displayNextScreen();
-// show info on display
-void display(const DateTime& nowUtc);
 
 
 // *** gps.cpp ***

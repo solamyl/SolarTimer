@@ -16,7 +16,9 @@
 #include <LCDI2C_Generic.h>
 
 #include "DateTime.h"
+#include "config.h"
 #include "globals.h"
+#include "display.h"
 
 
 // backlight timestamp
@@ -24,23 +26,25 @@
 unsigned long backlightTS = 0;
 // is backlight shining?
 bool backlightOn = false;
-
 // flag for redrawing whole info on the display
 bool refreshScreen = true;
 
-// selector for currently displayed info (ie. screens)
-// 1 = screen1 (default): date/time, sun altitude, switch times
-// 2 = screen2: gps info, switch delay
-// 3 = screen3: diagnostics
-// 4 = screen4: version info
-int8_t selectScreen = 1;
+// selector for currently displayed screen (0=default "home" screen)
+uint8_t screenSelector = 0;
+// (HEXADECIMAL) upper digit is the screen, lower digit is subscreen/certain value on the screen
+// 1x = (default) date/time, sun altitude, switch dedlay, switch times
+// 2x = gps info
+// 3x = diagnostics
+// 4x = version info
+uint8_t screenSequence[] = {0x11, 0x12, 0x20, 0x30, 0x40};
 
 
 
-// fill rest of the line up to N characters
-void fillUpToN(char * buf, int n)
+// fill rest of the line with "spaces", up to given "N" nuber of characters
+// longer lines than N will be truncated to N
+void fillUpToN(char * buf, uint8_t n)
 {
-    int i = 0;
+    uint8_t i = 0;
     while (i < n && buf[i] != '\0')
         ++i;
     while (i < n)
@@ -50,18 +54,24 @@ void fillUpToN(char * buf, int n)
 }
 
 
-// cycle between screens
-void displayNextScreen()
+// cycle between screens or values
+void nextScreen()
 {
     // advance to the next screen
-    selectScreen = (selectScreen % 4) + 1; // cycle 4 screens
+    screenSelector = (screenSelector + 1) % (sizeof(screenSequence) / sizeof(uint8_t));
     refreshScreen = true;
+}
+
+// get currently displayed screen/value
+uint8_t getActiveScreen()
+{
+    return screenSequence[screenSelector];
 }
 
 
 // print a message about close upcomming switch-state change
 // return: true=msg was printed, false=nothing done
-bool switchChangeExpectedSoon(const DateTime& nowUtc)
+bool switchExpectedSoon(const DateTime& nowUtc)
 {
     int8_t isComming = 0; //0=none, 1=ON, 2=OFF
     long diff = timeToSwitchOn(nowUtc);
@@ -82,7 +92,7 @@ bool switchChangeExpectedSoon(const DateTime& nowUtc)
         buf[0] = '\0';
         fillUpToN(buf, 20);
 
-        printString(buf, isComming == 1 ? "*ZAPNUTI ZA" : "*VYPNUTI ZA", 0, false);
+        printString(buf, isComming == 1 ? "ZAPNUTI ZA" : "VYPNUTI ZA", 0, false);
         //printString(buf + 3, "PNUTI ZA", 0, false);
         printInt(buf + 12, diff, false, 4, false);
         printString(buf + 17, "sec", 0, false);
@@ -98,7 +108,7 @@ bool switchChangeExpectedSoon(const DateTime& nowUtc)
 
 // draw screen on lcd display:
 // 1 = screen1: date/time, sun altitude, switch times
-void screen1(const DateTime& nowUtc)
+void switchTimeScreen(const DateTime& nowUtc, uint8_t subScreen)
 {
     // začátek obrazovky
     //lcd.setCursor(0, 0);
@@ -108,7 +118,7 @@ void screen1(const DateTime& nowUtc)
     DateTime nowLocal = localDateTime(nowUtc);
     char buf[32];
 
-    if (!switchChangeExpectedSoon(nowUtc)) {
+    if (!switchExpectedSoon(nowUtc)) {
         // switch is not comming, normal msg
         buf[0] = '\0';
         fillUpToN(buf, 20);
@@ -122,14 +132,22 @@ void screen1(const DateTime& nowUtc)
     if (!refreshScreen)
         return;
 
-    // ========= LINE 2 - vyska slunce
+    // ========= LINE 2 - vyska slunce / zpoždění spínače
     buf[0] = '\0';
     fillUpToN(buf, 20);
 
-    printString(buf, "slunce", 0, false);
-    printFloat(buf + 7, config.switchSunAltitude_x10 / 10.0, 1, true, 6, false);
-    printString(buf + 14, "stupnu", 0, false);
-
+    if (subScreen == 1) {
+        printString(buf, "slunce", 0, false);
+        printFloat(buf + 7, config.switchSunAltitude_x10 / 10.0, 1, true, 6, false);
+        printString(buf + 14, "stupne", 0, false);
+        //printFloat(buf + 9, config.switchSunAltitude_x10 / 10.0, 1, true, 7, false);
+        //printString(buf + 17, "st.", 0, false);
+    }
+    else if (subScreen == 2) {
+        printString(buf, "zpozdeni", 0, false);
+        printInt(buf + 9, config.switchTimeDelay, false, 7, false);
+        printString(buf + 17, "sec", 0, false);
+    }
     lcd.println(buf);
 
     // ========= LINE 3 - zapad
@@ -158,14 +176,14 @@ void screen1(const DateTime& nowUtc)
 
 // draw screen on lcd display:
 // 2 = screen2: gps info, switch delay
-void screen2(const DateTime& nowUtc)
+void gpsInfoScreen(const DateTime& nowUtc, uint8_t subScreen)
 {
     // začátek obrazovky
     lcd.home();
 
     // ========= LINE 1 - GPS signal quality
     char buf[32];
-    if (!switchChangeExpectedSoon(nowUtc)) {
+    if (!switchExpectedSoon(nowUtc)) {
         // switch is not comming, normal msg
         buf[0] = '\0';
         fillUpToN(buf, 20);
@@ -183,22 +201,36 @@ void screen2(const DateTime& nowUtc)
 
         lcd.println(buf);
     }
-    // když není potřeba refreshovat vše, ukonči
-    if (!refreshScreen)
-        return;
 
-    // ========= LINE 2 - position
+    // ========= LINE 2 - current position
     buf[0] = '\0';
     fillUpToN(buf, 20);
 
-    printFloat(buf, config.latitude, 6, false, 9, false);
-    buf[9] = ',';
-    printFloat(buf + 11, config.longitude, 6, false, 9, false);
+    printString(buf, "akt:", 0, false);
+    printFloat(buf + 5, gps.location.lat(), 4, false, 7, false);
+    buf[12] = ',';
+    printFloat(buf + 13, gps.location.lng(), 4, false, 7, false);
     
     fillUpToN(buf, 20); //for sure
     lcd.println(buf);
 
-    // ========= LINE 3 - rtc sync
+    // když není potřeba refreshovat vše, ukonči
+    if (!refreshScreen)
+        return;
+
+    // ========= LINE 3 - stored position
+    buf[0] = '\0';
+    fillUpToN(buf, 20);
+
+    printString(buf, "pam:", 0, false);
+    printFloat(buf + 5, config.latitude, 4, false, 7, false);
+    buf[12] = ',';
+    printFloat(buf + 13, config.longitude, 4, false, 7, false);
+    
+    fillUpToN(buf, 20); //for sure
+    lcd.println(buf);
+
+    // ========= LINE 4 - rtc sync
     buf[0] = '\0';
     fillUpToN(buf, 20);
 
@@ -206,18 +238,7 @@ void screen2(const DateTime& nowUtc)
     if (datetimeSetTS > 0)
         printDelay(buf + 14, (millis() - datetimeSetTS) / 1000ul, 6, false);
     else
-        printString(buf + 17, "***", 0, false);
-    
-    fillUpToN(buf, 20); //for sure
-    lcd.println(buf);
-
-    // ========= LINE 4 - switch delay
-    buf[0] = '\0';
-    fillUpToN(buf, 20);
-
-    printString(buf, "posun spinace", 0, false);
-    printString(buf + 17, "sec", 0, false);
-    printInt(buf + 14, config.switchTimeDelay, false, 2, false);
+        printString(buf + 18, "--", 0, false);
     
     fillUpToN(buf, 20); //for sure
     lcd.println(buf);
@@ -226,13 +247,13 @@ void screen2(const DateTime& nowUtc)
 
 // draw screen on lcd display:
 // 3 = screen3: diagnostics
-void screen3(const DateTime& nowUtc)
+void diagnosticScreen(const DateTime& nowUtc, uint8_t subScreen)
 {
     // začátek obrazovky
     lcd.home();
 
     char buf[32];
-    if (!switchChangeExpectedSoon(nowUtc)) {
+    if (!switchExpectedSoon(nowUtc)) {
         // switch is not comming, normal msg
         buf[0] = '\0';
         fillUpToN(buf, 20);
@@ -267,13 +288,13 @@ void screen3(const DateTime& nowUtc)
 
 // draw screen on lcd display:
 // 4 = screen4: version info
-void screen4(const DateTime& nowUtc)
+void versionInfoScreen(const DateTime& nowUtc, uint8_t subScreen)
 {
     // začátek obrazovky
     lcd.home();
 
     char buf[32];
-    if (!switchChangeExpectedSoon(nowUtc)) {
+    if (!switchExpectedSoon(nowUtc)) {
         // switch is not comming, normal msg
         buf[0] = '\0';
         fillUpToN(buf, 20);
@@ -329,7 +350,7 @@ void display(const DateTime& nowUtc)
             lcd.noBacklight();
             backlightOn = false;
             // switch back to default screen
-            selectScreen = 1;
+            screenSelector = 0;
             refreshScreen = true;
         }
     }
@@ -339,14 +360,17 @@ void display(const DateTime& nowUtc)
         refreshScreen = true;
 
     // switch on selected screen
-    if (selectScreen == 1) 
-        screen1(nowUtc);
-    else if (selectScreen == 2)
-        screen2(nowUtc);
-    else if (selectScreen == 3)
-        screen3(nowUtc);
+    uint8_t scr = (getActiveScreen() & 0xf0) >> 4;
+    uint8_t sub = (getActiveScreen() & 0x0f);
+
+    if (scr == 1) 
+        switchTimeScreen(nowUtc, sub);
+    else if (scr == 2)
+        gpsInfoScreen(nowUtc, sub);
+    else if (scr == 3)
+        diagnosticScreen(nowUtc, sub);
     else
-        screen4(nowUtc);
+        versionInfoScreen(nowUtc, sub);
 
     // clear flag
     refreshScreen = false;

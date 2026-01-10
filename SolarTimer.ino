@@ -12,4 +12,4 @@
  */
 
 // version string, at least this file has some use...
-const char * appVersion = "SolarTimer v1.2.0";
+const char * appVersion = "SolarTimer v1.2.1";

@@ -18,6 +18,8 @@
 #include <SolarCalculator.h>
 
 #include "DateTime.h"
+#include "config.h"
+#include "display.h"
 #include "globals.h"
 
 
@@ -56,7 +58,7 @@ DateTime rtcCurrentTime()
     if (d < 1 || d > 31 || m < 1 || m > 12) //probably rtc error
         return DateTime(); //return default date 01.01.2000 00:00:00
 
-    return DateTime(rtc.year(), rtc.month(), rtc.day(), rtc.hour(), rtc.minute(), rtc.second());
+    return DateTime(rtc.year() + 2000, rtc.month(), rtc.day(), rtc.hour(), rtc.minute(), rtc.second());
 }
 
 
@@ -109,7 +111,7 @@ DateTime hoursToDateTime(double h, int year=2000, int8_t month=1, int8_t day=1)
     return dt;*/
     
     // not the fastest, but more memory efficient
-    return DateTime(year, month, day, hh, mm, ss) + TimeSpan(daysOff, 0, 0, 0);
+    return DateTime(year, month, day, hh, mm, ss) + TimeSpan(daysOff * 86400l);
 }
 
 
@@ -307,7 +309,7 @@ int gpsSync(const DateTime& nowUtc)
         }
         else if (hdop < 50.0) { //quality is not good
 
-            if (nowUtc.yearOffset() == 0/*RTC not set*/) {
+            if (nowUtc.year() == 2000/*probably RTC not set*/) {
                 // poor, but we may have someting. set RTC
                 setTime = 1; //if necessary
             }
@@ -336,8 +338,8 @@ int gpsSync(const DateTime& nowUtc)
     Serial.print(positionSetTS);
     Serial.print(", hrsSince=");
     Serial.print(hoursSinceRtcResync);
-    Serial.print(", rtcYOff=");
-    Serial.print(nowUtc.yearOffset());
+    Serial.print(", rtcYear=");
+    Serial.print(nowUtc.year());
     Serial.print(", hdop=");
     Serial.println(hdop);
     Serial.print(":  setTime=");
@@ -371,7 +373,7 @@ int gpsSync(const DateTime& nowUtc)
         // we need to set it
         if (setTime) {
             rtc.set(gpsNow.second(), gpsNow.minute(), gpsNow.hour(), gpsNow.dayOfTheWeek(),
-                    gpsNow.day(), gpsNow.month(), gpsNow.yearOffset());
+                    gpsNow.day(), gpsNow.month(), gpsNow.year() - 2000);
             rtc.lostPowerClear(); //for sure
             rtc.refresh();
 
@@ -410,13 +412,13 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     unsigned long nowTS = millis();
     unsigned long secsSinceLastCalc = (nowTS - switchTimesCalcTS) / (1000ul);
 
-    if (!force && nowUtc.yearOffset() > 0 && switchTimesCalcTS > 0 && secsSinceLastCalc < 3600ul) {
+    if (!force && nowUtc.year() > 2000 && switchTimesCalcTS > 0 && secsSinceLastCalc < 3600ul) {
         // times have been calculated recently
         //Serial.println("calc: not necessary");
         return +1; //not necessary
     }
 
-    if (nowUtc.yearOffset() == 0/*rtc not set*/ || config.hdop < 0.0/*position not valid*/) {
+    if (nowUtc.year() == 2000/*rtc not set*/ || config.hdop < 0.0/*position not valid*/) {
         Serial.println("calc: time+pos not valid");
         return -1; // input data not valid
     }
@@ -454,13 +456,12 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     // - before noon: sw-on=yesterday, sw-off=today
     // - after noon: sw-on=today, sw-off=tomorrow
     DateTime swOnDay, swOffDay; //date when to switch on and off
-    const TimeSpan oneDay(1/*day*/, 0, 0, 0);
     if (nowUtc >= solarNoon) { //now is after noon - lights-ON period is starting today evening
         swOnDay = solarNoon;
-        swOffDay = solarNoon + oneDay;
+        swOffDay = solarNoon + TimeSpan(86400l); //next day
     }
     else { //now is before noon - lights-ON period has started yesterday
-        swOnDay = solarNoon - oneDay;
+        swOnDay = solarNoon - TimeSpan(86400l); //previous day
         swOffDay = solarNoon;
     }
     /*Serial.print("swOnDay: ");
@@ -505,12 +506,15 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     // "sunAltitude" setting. but it is too expensive (limited program space) for this marginal case 
     if (isnan(sunset)) {
         // sunset is wrong, use some substitute
-        if (config.switchSunAltitude_x10 > 0)
+        /*if (config.switchSunAltitude_x10 > 0)
             // use solar noon as switch-ON time or all day ON
             switchOnTimeUtc = hoursToDateTime(transit, swOnDay.year(), swOnDay.month(), swOnDay.day());
         else
             // use default day in the past for all day OFF
-            switchOnTimeUtc = DateTime();
+            switchOnTimeUtc = DateTime();*/
+        switchOnTimeUtc = hoursToDateTime(config.switchSunAltitude_x10 > 0 ?
+                transit /*solar noon*/ : transit + 12.0 /*~next midnight*/,
+                swOnDay.year(), swOnDay.month(), swOnDay.day());
     }
     else {
         // correct sunset
@@ -520,7 +524,7 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     printDateTime(buf, switchOnTimeUtc);
     Serial.println(buf);*/
 
-    switchOnTimeLocal = localDateTime(switchOnTimeUtc);
+    switchOnTimeLocal = localDateTime(switchOnTimeUtc + TimeSpan(config.switchTimeDelay));
 
     Serial.print("ON-loc:  ");
     printDateTime(buf, switchOnTimeLocal);
@@ -540,12 +544,15 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     // KNOWN BUG: following solution is not correct. read comment above for sunset
     if (isnan(sunrise)) {
         // sunrise is wrong, use some substitute
-        if (config.switchSunAltitude_x10 > 0)
+        /*if (config.switchSunAltitude_x10 > 0)
             // use solar noon as switch-OFF time for all day ON
             switchOffTimeUtc = hoursToDateTime(transit, swOffDay.year(), swOffDay.month(), swOffDay.day());
         else
             // use default day in the past for all day OFF
-            switchOffTimeUtc = DateTime();
+            switchOffTimeUtc = DateTime();*/
+        switchOffTimeUtc = hoursToDateTime(config.switchSunAltitude_x10 > 0 ?
+                transit /*solar noon*/ : transit - 12.0 /*~previous midnight*/,
+                swOffDay.year(), swOffDay.month(), swOffDay.day());
     }
     else {
         // correct sunrise
@@ -555,7 +562,7 @@ int calculateSwitchTimes(const DateTime& nowUtc, bool force = false)
     printDateTime(buf, switchOffTimeUtc);
     Serial.println(buf);*/
 
-    switchOffTimeLocal = localDateTime(switchOffTimeUtc);
+    switchOffTimeLocal = localDateTime(switchOffTimeUtc + TimeSpan(config.switchTimeDelay));
     
     Serial.print("OFF-loc: ");
     printDateTime(buf, switchOffTimeLocal);

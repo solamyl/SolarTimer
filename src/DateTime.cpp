@@ -9,4 +9,8 @@
 
 #include "DateTime.h"
 
+#ifndef _RTCLIB_H_
+
 const uint8_t DateTime::daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+#endif // _RTCLIB_H_

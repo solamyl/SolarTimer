@@ -20,6 +20,8 @@
 #include <Mini_Button.h>
 
 #include "DateTime.h"
+#include "config.h"
+#include "display.h"
 #include "globals.h"
 
 
@@ -239,8 +241,8 @@ void debugInfo()
     Serial.println(sizeof(backlightOn));
     Serial.print("sizeof(refreshScreen)=");
     Serial.println(sizeof(refreshScreen));
-    Serial.print("sizeof(selectScreen)=");
-    Serial.println(sizeof(selectScreen));*/
+    Serial.print("sizeof(screenSelector)=");
+    Serial.println(sizeof(screenSelector));*/
 
     /*Serial.print("sizeof(datetimeSetTS)=");
     Serial.println(sizeof(datetimeSetTS));
@@ -274,6 +276,8 @@ void debugInfo()
 
     /*Serial.print("sizeof(DateTime)=");
     Serial.println(sizeof(DateTime));
+    Serial.print("sizeof(TimeSpan)=");
+    Serial.println(sizeof(TimeSpan));
     Serial.print("sizeof(Button)=");
     Serial.println(sizeof(Button));
     Serial.print("sizeof(int)=");

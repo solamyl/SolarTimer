@@ -13,6 +13,8 @@
 #include <Arduino.h>
 #include <avr/wdt.h>
 
+#include "config.h"
+#include "display.h"
 #include "globals.h"
 
 
@@ -68,9 +70,11 @@ void handleButtons()
             // just light up the display
         }
         else {
-            displayNextScreen(); //advance to the next screen
+            nextScreen(); //advance to the next screen
         }
     }
+
+    uint8_t scr = getActiveScreen();
 
     // == PLUS ==
     if (buttonPlus.wasPressed()) {
@@ -81,12 +85,12 @@ void handleButtons()
         if (!backlightOn) {
             // just light up the display
         }
-        else if (selectScreen == 1) {
+        else if (scr == 0x11) {
             config.switchSunAltitude_x10 += 1;
             if (config.switchSunAltitude_x10 > 900)
                 config.switchSunAltitude_x10 = 900;
         }
-        else if (selectScreen == 2) {
+        else if (scr == 0x12) {
             config.switchTimeDelay += 10;
             if (config.switchTimeDelay > 990)
                 config.switchTimeDelay = 990;
@@ -102,12 +106,12 @@ void handleButtons()
         if (!backlightOn) {
             // just light up the display
         }
-        else if (selectScreen == 1) {
+        else if (scr == 0x11) {
             config.switchSunAltitude_x10 -= 1;
             if (config.switchSunAltitude_x10 < -900)
                 config.switchSunAltitude_x10 = -900;
         }
-        else if (selectScreen == 2) {
+        else if (scr == 0x12) {
             config.switchTimeDelay -= 10;
             if (config.switchTimeDelay < 0)
                 config.switchTimeDelay = 0;
